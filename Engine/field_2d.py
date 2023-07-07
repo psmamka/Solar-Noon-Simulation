@@ -10,7 +10,7 @@ class Field2D:
         self.dt = dt
         self.t_max = t_max
 
-        num_points = np.ceil((t_max - t_0) / dt) + 1    # first and last points
+        num_points = int(np.ceil((t_max - t_0) / dt) + 1)    # first and last points
         self.idx_arr = np.arange(start = 0, stop = num_points, step = 1)
         self.time_arr = self.idx_arr * dt
 
@@ -27,10 +27,10 @@ class Field2D:
                   x, y, 
                   vx, vy):
         ax, ay = self.acc_field(x, y)
-        dvx, dvy = [ax, ay] * self.dt
-        avg_v = [vx + dvx / 2., vy + dvy / 2.]
+        dvx, dvy = [ax * self.dt , ay * self.dt ]
+        avg_vx, avg_vy = [vx + dvx / 2., vy + dvy / 2.]
 
-        dx, dy = avg_v * self.dt
+        dx, dy = [self.dt * avg_vx, self.dt * avg_vy]
         x_new, y_new = [x + dx, y + dy]
         vx_new, vy_new = [vx + dvx, vy + dvy]
 
