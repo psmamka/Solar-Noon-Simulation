@@ -23,6 +23,8 @@ class Field2D:
         self.x_ar[0], self.y_ar[0] = (self.r_0[0], self.r_0[1])
         self.vx_ar[0], self.vy_ar[0] = (self.v_0[0], self.v_0[1])
 
+        self.orbit_calculated = False
+
     def calc_next_point(self, 
                   x, y, 
                   vx, vy):
@@ -41,6 +43,29 @@ class Field2D:
             self.x_ar[idx + 1], self.y_ar[idx + 1], self.vx_ar[idx + 1], self.vy_ar[idx + 1] = \
                 self.calc_next_point(x=self.x_ar[idx], y=self.y_ar[idx], 
                                vx=self.vx_ar[idx], vy=self.vy_ar[idx])
+        
+        self.orbit_calculated = True
     
+    # calculate the orbital period (primitive)
+    # epsilon is the criterion for "sufficiently close"
+    def calculate_orbital_period(self, eps=0, skip_points=20, verbose=False):
+        if not self.orbit_calculated:
+            self.calculate_motion()
+
+        if eps == 0: # set to the half of distanced covered in dt with initial velocity
+            eps = (self.v_0[0]**2 + self.v_0[1]**2)**0.5 * self.dt / 2.
+        
+        # calculate distance to the initial point 
+        for idx in range(skip_points, self.num_points):   # skip first few points point
+            dist = abs(self.x_ar[idx] - self.x_ar[0]) + abs(self.y_ar[idx] - self.y_ar[0])
+            if verbose and dist < 10 * eps: 
+                print("Orbital point: ", dist, self.time_arr[idx], idx)
+            if dist < eps:
+                return (self.time_arr[idx], idx)
+            
+        return (0.0, 0)
+            
+        
+
 
 
