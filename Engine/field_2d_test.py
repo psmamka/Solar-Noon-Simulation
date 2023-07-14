@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 # Simple circular orbit
-def inverse_square_test():
+def inverse_square_field_test():
     acc_field = lambda x, y: [-x / (x*x + y*y)**1.5, -y / (x*x + y*y)**1.5]
     print(acc_field(1, 0),      #   [-1.0, 0.0]
           acc_field(0, 1),      #   [0.0, -1.0]
@@ -14,8 +14,8 @@ def inverse_square_test():
         r_0 = [1, 0],
         v_0 = [0, 1],
         acc_field = acc_field,
-        dt = 2e-4,
-        t_max = 2 * np.pi
+        dt = 1e-5,
+        t_max = 3 * np.pi
     )
 
     motion_2d.calculate_motion()
@@ -32,10 +32,17 @@ def inverse_square_test():
     ax.set_title(f"Circular Orbit around A\n Central 1/r^2 Force")
     plt.show()
 
+    (orb_time, orb_idx) = motion_2d.calculate_orbital_period(eps=1e-4, skip_points=1000, verbose=True)
+    print("Orbital Period: %f, | Orbital Index: %i" % (orb_time, orb_idx))    
+    # Orbital Period: 6.283450, | Orbital Index: 628345
 
+    ecc, idx_min, idx_max = motion_2d.calculate_elliptical_eccentricity(idx_first=0, idx_last=650_000)
+
+    print(f"eccentricity: %f | min index: %i | max index: %i" % (ecc, idx_min, idx_max))
+    # eccentricity: 0.000031 | min index: 6 | max index: 649999
 
 def run_all_tests():
-    inverse_square_test()
+    inverse_square_field_test()
 
 if __name__ == "__main__":
     run_all_tests()

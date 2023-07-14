@@ -16,6 +16,8 @@ class Field2D:
 
         self.x_ar = np.zeros(num_points)
         self.y_ar = np.zeros(num_points)
+        self.r_ar = np.zeros(num_points)
+
         self.vx_ar = np.zeros(num_points)
         self.vy_ar = np.zeros(num_points)
 
@@ -45,7 +47,32 @@ class Field2D:
                                vx=self.vx_ar[idx], vy=self.vy_ar[idx])
         
         self.orbit_calculated = True
+        self.calculate_distances()
     
+    # calculate the array of euclidean distance to the coordinates origin
+    def calculate_distances(self):
+        self.r_ar = np.sqrt(self.x_ar * self.x_ar + self.y_ar * self.y_ar)
+        return self.r_ar
+    
+    # calculate eccentricity of the orbit using max and min distances (for elliptical orbits)
+    # for an elliptical orbit:
+    # r_max = a + c with a being the major semi-axis, c the focal distance
+    # r_min = a - c
+    # eccentricity e = c / a = (r_max - r_min) / (r_max + r_min)
+    # idx_first and idx_last indicate the range of indices within which 
+    # the orbital maxima/minima (i.e. apoapsis, periapsis) are calculated
+    def calculate_elliptical_eccentricity(self, idx_first=0, idx_last=0):
+        if idx_last == 0: idx_last = self.num_points
+        if not self.orbit_calculated: self.calculate_motion()
+
+        idx_rng = range(idx_first, idx_last)
+        idx_min, idx_max = [ np.argmin(self.r_ar[idx_rng]),  np.argmax(self.r_ar[idx_rng]) ]
+
+        r_min, r_max = [self.r_ar[idx_min], self.r_ar[idx_max]]
+        ecc = (r_max - r_min) / (r_max + r_min)
+
+        return ecc, idx_min, idx_max
+
     # calculate the orbital period (primitive)
     # epsilon is the criterion for "sufficiently close"
     def calculate_orbital_period(self, eps=0, skip_points=20, verbose=False):
