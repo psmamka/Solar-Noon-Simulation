@@ -146,14 +146,45 @@ class Field2D:
         return self.rotational_period
     
     # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
+    # for now the initial point is at psi - theta = 0, i.e. midnight.
     def calculate_solar_angle(self):
         self.rotaional_velocity = 2 * np.pi / self.rotational_period
-        if not self.rotations_aligned: rotaional_velocity *= -1
+        if not self.rotations_aligned: self.rotaional_velocity *= -1
 
         # psi - theta
-        self.solar_angle_ar = self.time_ar * self.rotaional_velocity - self.th_ar
+        self.solar_angle_ar = (self.time_ar * self.rotaional_velocity - self.th_ar) % (2 * np.pi)
+        return self.solar_angle_ar
+    
+    # calculate the exact time points where the observer sees the sun at
+    # the highsest point in the sky
+    def calculate_solar_noons(self, noon_angle=np.pi):
+        self.noon_times_ar = []
+        if self.rotations_aligned:
+            for idx in range(1, self.num_points):
+                # solar_ang_1, solar_ang_2 = (self.solar_angle_ar[idx - 1], self.solar_angle_ar[idx])
+                if (self.solar_angle_ar[idx - 1] < noon_angle and self.solar_angle_ar[idx] > noon_angle):
+                    self.noon_times_ar.append(
+                        self.get_solar_noon_crossing(
+                            self.time_ar[idx - 1], self.time_ar[idx], self.solar_angle_ar[idx - 1], self.solar_angle_ar[idx], noon_angle
+                        )
+                    )
+        
         return self.solar_angle_ar
 
+    # basic computation of a linear segment from (x0, y0) to (x1, y1) crossing a y value
+    def get_solar_noon_crossing(self, time_1, time_2, angle_1, angle_2, noon_angle=np.pi):
+        if not ((angle_1 - noon_angle) * (angle_2 - noon_angle) <= 0):
+            print("no crossing in the interval")
+            exit()
+        slope = (angle_2 - angle_1) / (time_2 - time_1)
+        # angle_1 + slope * Δt = noon_angle  ⇒  Δt = (noon_angle - angle_1) / slope
+        delta_t = (noon_angle - angle_1) / slope
+
+        return time_1 + delta_t
+        
+
+        
+        
 
 
 
