@@ -3,7 +3,8 @@
 import numpy as np
 
 class Field2D:
-    def __init__(self, r_0=[0, 0], v_0=[0, 0], acc_field=lambda x,y: [0, 0], dt=1, t_0 = 0, t_max=100):
+    def __init__(self, r_0=[0, 0], v_0=[0, 0], acc_field=lambda x,y: [0, 0], 
+                 dt=1, t_0=0, t_max=100, days_per_year=365.256, rotations_aligned=True):
         self.r_0 = r_0
         self.x_0, self.y_0 = self.r_0
 
@@ -16,8 +17,8 @@ class Field2D:
         self.t_max = t_max
 
         num_points = int(np.ceil((t_max - t_0) / dt) + 1)    # first and last points
-        self.idx_arr = np.arange(start = 0, stop = num_points, step = 1)
-        self.time_arr = self.idx_arr * dt
+        self.idx_ar = np.arange(start = 0, stop = num_points, step = 1)
+        self.time_ar = self.idx_ar * dt
 
         self.x_ar = np.zeros(num_points)
         self.y_ar = np.zeros(num_points)
@@ -34,6 +35,11 @@ class Field2D:
 
         self.orbit_calculated = False
         self.orbital_period = 0
+
+        self.days_per_year = days_per_year
+        self.rotations_aligned = rotations_aligned   # planetary and orbital rotations in the same direction
+        self.rotaional_velocity = 0
+        self.solar_angle_ar = np.zeros(num_points)
 
     def calc_next_point(self, 
                   x, y, 
@@ -117,10 +123,10 @@ class Field2D:
         for idx in range(skip_points, self.num_points):   # skip first few points point
             dist = abs(self.x_ar[idx] - self.x_0) + abs(self.y_ar[idx] - self.y_0)
             if verbose and dist < 10 * eps: 
-                print("Orbital point: ", dist, self.time_arr[idx], idx)
+                print("Orbital point: ", dist, self.time_ar[idx], idx)
             if dist < eps:
-                self.orbital_period = self.time_arr[idx]
-                return (self.time_arr[idx], idx)
+                self.orbital_period = self.time_ar[idx]
+                return (self.time_ar[idx], idx)
         
         print("could not calculate the orbital period.")
         exit()
@@ -128,16 +134,26 @@ class Field2D:
     # the length of the astronomical/sidereal day based on the orbital period and num days/year
     # astronomical day is slightly shorter than the solar/synodic day if the two rotational
     # motions are in the same directions. e.g. for earch.
-    def calculate_rotational_period(self, days_per_year=365.256, rotations_aligned=True):
+    def calculate_rotational_period(self):
         if self.orbital_period == 0: self.calculate_orbital_period()
 
         # calculate number of rotations:
         rotations_per_year = \
-            days_per_year + 1 if rotations_aligned else days_per_year - 1
+            self.days_per_year + 1 if self.rotations_aligned else self.days_per_year - 1
 
         self.rotational_period = self.orbital_period / rotations_per_year
 
         return self.rotational_period
+    
+    # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
+    def calculate_solar_angle(self):
+        self.rotaional_velocity = 2 * np.pi / self.rotational_period
+        if not self.rotations_aligned: rotaional_velocity *= -1
+
+        # psi - theta
+        self.solar_angle_ar = self.time_ar * self.rotaional_velocity - self.th_ar
+        return self.solar_angle_ar
+
 
 
 
