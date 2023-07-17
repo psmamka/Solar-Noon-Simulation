@@ -48,8 +48,6 @@ class Field2D:
         self.minute_dur = 0.
         self.second_dur = 0.
 
-
-
     def calc_next_point(self, 
                   x, y, 
                   vx, vy):
@@ -71,6 +69,7 @@ class Field2D:
         
         self.orbit_calculated = True
         self.calculate_distances()
+        self.calculate_angles()
     
     # calculate the array of euclidean distance to the coordinates origin
     def calculate_distances(self):
@@ -119,9 +118,35 @@ class Field2D:
 
         return ecc, idx_min, idx_max
 
+    # angle-based approach (more robust)
+    # calculate the orbital period based on the time it takes for the planet to
+    # make a complete revolution (2 * pi angle) around the sun
+    def calculate_orbital_period(self, verbose=False):
+        if self.th_ar[1] == 0: self.calculate_angles()
+
+        if self.th_ar[1] > 0 :  # counter-clockwise orbit
+            for idx in range(1, self.num_points):
+                if self.th_ar[idx] >= 2 * np.pi and self.th_ar[idx - 1] < 2 * np.pi:    # calculate crossing of 2pi
+                    self.orbital_period = self.get_angle_crossing(
+                        self.time_ar[idx - 1], self.time_ar[idx], self.th_ar[idx - 1], self.th_ar[idx], 2 * np.pi
+                    )
+                    return self.orbital_period, idx
+        else:                   # clockwise orbit
+            for idx in range(1, self.num_points):
+                if self.th_ar[idx] <= -2 * np.pi and self.th_ar[idx - 1] > -2 * np.pi:    # calculate crossing of -2pi
+                    self.orbital_period = self.get_angle_crossing(
+                        self.time_ar[idx - 1], self.time_ar[idx], self.th_ar[idx - 1], self.th_ar[idx], -2 * np.pi
+                    )
+                    return self.orbital_period, idx
+
+        print("could not calculate the angle-based orbital period.")
+        exit()
+
     # calculate the orbital period (primitive)
     # epsilon is the criterion for "sufficiently close"
-    def calculate_orbital_period(self, eps=0, skip_points=20, verbose=False):
+    # primitive approach based on the closest distance to the start point
+    # angle based calculation above should be more reliable
+    def calculate_orbital_period_distbased(self, eps=0, skip_points=20, verbose=False):
         if not self.orbit_calculated:
             self.calculate_motion()
 
@@ -137,14 +162,14 @@ class Field2D:
                 self.orbital_period = self.time_ar[idx]
                 return (self.time_ar[idx], idx)
         
-        print("could not calculate the orbital period.")
+        print("could not calculate the distance-based orbital period.")
         exit()
     
     # the length of the astronomical/sidereal day based on the orbital period and num days/year
     # astronomical day is slightly shorter than the solar/synodic day if the two rotational
     # motions are in the same directions. e.g. for earch.
     def calculate_rotational_period(self):
-        if self.orbital_period == 0: self.calculate_orbital_period()
+        if self.orbital_period == 0: self.calculate_orbital_period_distbased()
 
         # calculate number of rotations:
         rotations_per_year = \
@@ -173,7 +198,7 @@ class Field2D:
                 # solar_ang_1, solar_ang_2 = (self.solar_angle_ar[idx - 1], self.solar_angle_ar[idx])
                 if (self.solar_angle_ar[idx - 1] < noon_angle and self.solar_angle_ar[idx] > noon_angle):
                     self.noon_times_ar.append(
-                        self.get_solar_noon_crossing(
+                        self.get_angle_crossing(
                             self.time_ar[idx - 1], self.time_ar[idx], self.solar_angle_ar[idx - 1], self.solar_angle_ar[idx], noon_angle
                         )
                     )
@@ -181,7 +206,7 @@ class Field2D:
         return self.solar_angle_ar
 
     # basic computation of a linear segment from (x0, y0) to (x1, y1) crossing a y value
-    def get_solar_noon_crossing(self, time_1, time_2, angle_1, angle_2, noon_angle=np.pi):
+    def get_angle_crossing(self, time_1, time_2, angle_1, angle_2, noon_angle=np.pi):
         if not ((angle_1 - noon_angle) * (angle_2 - noon_angle) <= 0):
             print("no crossing in the interval")
             exit()
@@ -193,7 +218,7 @@ class Field2D:
     
     # solar days are on avg. 24h, hours are 60 minutes, etc. 
     def setup_planetary_clock(self, hours_in_day=24.0):
-        if self.orbital_period == 0: self.calculate_orbital_period()
+        if self.orbital_period == 0: self.calculate_orbital_period_distbased()
 
         # calculate durations of average solar day, hour, minute and second in simulation time units
         self.avg_solar_day_dur = self.orbital_period / self.days_per_year
@@ -212,14 +237,5 @@ class Field2D:
         date_minute, minute_rem = np.divmod(hour_rem, self.minute_dur)
         date_second = minute_rem / self.second_dur 
 
-        return  (date_day, date_hour, date_minute, date_second)
+        return  (int(date_day), int(date_hour), int(date_minute), date_second)
         
-
-        
-        
-
-
-
-
-
-
