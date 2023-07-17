@@ -36,10 +36,19 @@ class Field2D:
         self.orbit_calculated = False
         self.orbital_period = 0
 
+        # planetary rotation
         self.days_per_year = days_per_year
         self.rotations_aligned = rotations_aligned   # planetary and orbital rotations in the same direction
-        self.rotaional_velocity = 0
+        self.rotaional_velocity = 0.
         self.solar_angle_ar = np.zeros(num_points)
+
+        # planetary clock in units of simulation time
+        self.avg_solar_day_dur = 0.
+        self.hour_dur = 0.
+        self.minute_dur = 0.
+        self.second_dur = 0.
+
+
 
     def calc_next_point(self, 
                   x, y, 
@@ -181,6 +190,29 @@ class Field2D:
         delta_t = (noon_angle - angle_1) / slope
 
         return time_1 + delta_t
+    
+    # solar days are on avg. 24h, hours are 60 minutes, etc. 
+    def setup_planetary_clock(self, hours_in_day=24.0):
+        if self.orbital_period == 0: self.calculate_orbital_period()
+
+        # calculate durations of average solar day, hour, minute and second in simulation time units
+        self.avg_solar_day_dur = self.orbital_period / self.days_per_year
+        self.hour_dur = self.orbital_period / (24 * self.days_per_year)
+        self.minute_dur = self.orbital_period / (24 * 60 * self.days_per_year)
+        self.second_dur = self.orbital_period / (24 * 3600 * self.days_per_year)
+
+        return(self.avg_solar_day_dur, self.hour_dur, self.minute_dur, self.second_dur)
+
+    # convert simulation time to planateray datetime in format: (day, hour, minute second)
+    def calculate_planetary_datetime(self, time):
+        if self.avg_solar_day_dur == 0: self.setup_planetary_clock()
+
+        date_day, day_rem = np.divmod(time, self.avg_solar_day_dur)
+        date_hour, hour_rem = np.divmod(day_rem, self.hour_dur)
+        date_minute, minute_rem = np.divmod(hour_rem, self.minute_dur)
+        date_second = minute_rem / self.second_dur 
+
+        return  (date_day, date_hour, date_minute, date_second)
         
 
         
