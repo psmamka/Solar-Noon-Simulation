@@ -65,7 +65,10 @@ class Field2D:
         self.obs_lon = np.deg2rad(observer_longitude)
 
         # observer noraml vector (n_hat) w.r.t. the planet surface
+        # and east (e_hat) vector w.r.t. the north pole
+        # the two vectors will be orthogonal
         self.obs_n_ar = np.zeros((num_points, 3))
+        self.obs_east_ar = np.zeros((num_points, 3))
 
     def calc_next_point(self, 
                   x, y, 
@@ -231,6 +234,30 @@ class Field2D:
         self.obs_n_ar[:, 1] = c4 * cos_phi_ar + + c5 + c6 * sin_phi_ar      # y
         self.obs_n_ar[:, 2] = c7 * cos_phi_ar + c8                          # z
         return
+    
+    # Observer east vector. 
+    # It will be used for calculation of solar noons,
+    # The technique is to do a vector product of axis and n, then normalize:
+    # 
+    #       obserber_east = rotation_axis x observer_n / sin(observer_theta)
+    # 
+    # Vector product refresher:
+    #
+    #       (x1, y1, z1) x (x2, y2, z2) = ( y1 z2 - z1 y2 , z1 x2 - x1 z2 , x1 y2 - y1 x2 )
+    # 
+    def calculate_observer_east(self):
+        if all(self.obs_n_ar[0, :] == [0, 0, 0]): self.calculate_observer_n()
+        # special cases: observer on north or south poles
+        if self.obs_lat == np.pi/2 or self.obs_lat == -np.pi/2:
+            # TODO: define east on poles in relation to the sun
+            return
+
+        axial_vector = [np.sin(self.ax_theta) * np.cos(self.ax_phi),
+                        np.sin(self.ax_theta) * np.sin(self.ax_phi),
+                        np.cos(self.ax_theta)]
+        
+        self.obs_east_ar = np.cross(axial_vector, self.obs_n_ar) / np.sin(np.pi/2 - self.obs_lat)
+        
     
     # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
     # for now the initial point is at psi - theta = 0, i.e. midnight.
