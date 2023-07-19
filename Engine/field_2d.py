@@ -4,7 +4,9 @@ import numpy as np
 
 class Field2D:
     def __init__(self, r_0=[0, 0], v_0=[0, 0], acc_field=lambda x,y: [0, 0], 
-                 dt=1, t_0=0, t_max=100, days_per_year=365.256, rotations_aligned=True):
+                 dt=1, t_0=0, t_max=100, days_per_year=365.256, rotations_aligned=True,
+                 axial_theta=0, axial_phi=0, 
+                 observer_latitude=0, observer_longitude=0):
         self.r_0 = r_0
         self.x_0, self.y_0 = self.r_0
 
@@ -39,7 +41,9 @@ class Field2D:
         # planetary rotation
         self.days_per_year = days_per_year
         self.rotations_aligned = rotations_aligned   # planetary and orbital rotations in the same direction
-        self.rotaional_velocity = 0.
+        self.rotational_period = 0.
+        self.rotational_velocity = 0.
+        self.psi_ar = np.zeros(num_points)
         self.solar_angle_ar = np.zeros(num_points)
 
         # planetary clock in units of simulation time
@@ -47,6 +51,21 @@ class Field2D:
         self.hour_dur = 0.
         self.minute_dur = 0.
         self.second_dur = 0.
+
+        # set up the axial tilt: angles of the rotation axis w.r.t ecliptic
+        # axial theta and axial phi are in spherical coordinates w.r.t
+        # the x and y axes on the obital plane (the "ecliptic") and the 
+        # z-axis perpendicular to the ecliptic
+        self.ax_theta = np.deg2rad(axial_theta)
+        self.ax_phi  = np.deg2rad(axial_phi)
+
+        # Set up the observer lattitude and longitude
+        # reference point w.r.t. the x-y axis
+        self.obs_lat = np.deg2rad(observer_latitude)
+        self.obs_lon = np.deg2rad(observer_longitude)
+
+        # observer noraml vector (n_hat) w.r.t. the planet surface
+        self.obs_n_ar = np.zeros((num_points, 3))
 
     def calc_next_point(self, 
                   x, y, 
@@ -169,7 +188,7 @@ class Field2D:
     # astronomical day is slightly shorter than the solar/synodic day if the two rotational
     # motions are in the same directions. e.g. for earch.
     def calculate_rotational_period(self):
-        if self.orbital_period == 0: self.calculate_orbital_period_distbased()
+        if self.orbital_period == 0: self.calculate_orbital_period()
 
         # calculate number of rotations:
         rotations_per_year = \
@@ -177,11 +196,45 @@ class Field2D:
 
         self.rotational_period = self.orbital_period / rotations_per_year
 
+        self.rotational_velocity = 2 * np.pi / self.rotational_period
+
         return self.rotational_period
+    
+    # observer n-hat is the perpendicular to the planet surface at
+    # the location of the observer. 
+    # It depends on observer coordinates (latt-long) as well as the 
+    # axial tilt of the planet and the planet rotation (psi)
+    # for the north pole it is always aligned with the rotation axis
+    # The 8 contants in the final rotated vector are only calculated once
+    def calculate_observer_n(self):
+        if self.rotational_period == 0: self.calculate_rotational_period()
+        self.psi_ar = self.rotational_velocity * self.time_ar   # roration phase
+        # observer spherical coordinates
+        theta = np.pi/2 - self.obs_lat
+        phi_ar = self.obs_lon + self.psi_ar # total phase is longitude + rotation phase
+        cos_phi_ar = np.cos(phi_ar)
+        sin_phi_ar = np.sin(phi_ar)
+        # matrix multiplacation results:
+        # x component consts:
+        c1 = np.cos(self.ax_phi) * np.cos(self.ax_theta) * np.sin(theta)
+        c2 = np.cos(self.ax_phi) * np.sin(self.ax_theta) * np.cos(theta)
+        c3 = -1 * np.sin(self.ax_phi) * np.sin(theta)
+        # y:
+        c4 = np.sin(self.ax_phi) * np.cos(self.ax_theta) * np.sin(theta)
+        c5 = np.sin(self.ax_phi) * np.sin(self.ax_theta) * np.cos(theta)
+        c6 = np.cos(self.ax_phi) * np.sin(theta) 
+        # z:    (sanity check: ax_phi independent)
+        c7 = -1 * np.sin(self.ax_theta) * np.sin(theta)
+        c8 = np.cos(self.ax_theta) * np.cos(theta)
+
+        self.obs_n_ar[:,0] = c1 * cos_phi_ar + c2 + c3 * sin_phi_ar         # x component of n_hat
+        self.obs_n_ar[:, 1] = c4 * cos_phi_ar + + c5 + c6 * sin_phi_ar      # y
+        self.obs_n_ar[:, 2] = c7 * cos_phi_ar + c8                          # z
+        return
     
     # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
     # for now the initial point is at psi - theta = 0, i.e. midnight.
-    def calculate_solar_angle(self):
+    def calculate_solar_angles(self):
         self.rotaional_velocity = 2 * np.pi / self.rotational_period
         if not self.rotations_aligned: self.rotaional_velocity *= -1
 
