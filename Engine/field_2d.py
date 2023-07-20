@@ -257,11 +257,38 @@ class Field2D:
                         np.cos(self.ax_theta)]
         
         self.obs_east_ar = np.cross(axial_vector, self.obs_n_ar) / np.sin(np.pi/2 - self.obs_lat)
-        
     
+    # calculate the times (simul) and indices (approx) of solar noons
+    # solar noons and midnights occurs when the observer's east unit vector is 
+    # perpendicular to the vector from the sun to the planet r = (x, y, 0)
+    # for noons (obs_east dot r) changes sign from negative to positive
+    # i.e. the sun moves to west for positive rototation velocity
+    # vice versa for negative rototation velocity
+    def calculate_solar_noons(self):
+        self.noon_times_ar = []
+        e_dot_r = np.zeros(self.num_points)
+        for idx in self.idx_ar:                             # get e dot r
+            e_dot_r[idx] = np.dot(self.obs_east_ar[idx], 
+                                  [self.x_ar[idx]/self.r_ar[idx], self.y_ar[idx]/self.r_ar[idx], 0])
+
+        if self.rotations_aligned:
+            for idx in range(1, self.num_points):
+                if e_dot_r[idx - 1] < 0 and e_dot_r[idx] >= 0:  # find the zero crossing
+                    self.noon_times_ar.append(
+                            self.get_angle_crossing(
+                                self.time_ar[idx - 1], self.time_ar[idx], e_dot_r[idx - 1], e_dot_r[idx], 0
+                            )
+                    )
+        else:
+            # TODO: finish the case for negative rotation velocity
+            pass
+
+        return self.noon_times_ar
+
+    # without axial tilt (deprecated)
     # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
     # for now the initial point is at psi - theta = 0, i.e. midnight.
-    def calculate_solar_angles(self):
+    def calculate_solar_angles_flat(self):
         self.rotaional_velocity = 2 * np.pi / self.rotational_period
         if not self.rotations_aligned: self.rotaional_velocity *= -1
 
@@ -269,9 +296,10 @@ class Field2D:
         self.solar_angle_ar = (self.time_ar * self.rotaional_velocity - self.th_ar) % (2 * np.pi)
         return self.solar_angle_ar
     
+    # without axial tilt (deorecated)
     # calculate the exact time points where the observer sees the sun at
     # the highsest point in the sky
-    def calculate_solar_noons(self, noon_angle=np.pi):
+    def calculate_solar_noons_flat(self, noon_angle=np.pi):
         self.noon_times_ar = []
         if self.rotations_aligned:
             for idx in range(1, self.num_points):
@@ -283,7 +311,7 @@ class Field2D:
                         )
                     )
         
-        return self.solar_angle_ar
+        return self.noon_times_ar
 
     # basic computation of a linear segment from (x0, y0) to (x1, y1) crossing a y value
     def get_angle_crossing(self, time_1, time_2, angle_1, angle_2, noon_angle=np.pi):
@@ -308,11 +336,13 @@ class Field2D:
 
         return(self.avg_solar_day_dur, self.hour_dur, self.minute_dur, self.second_dur)
 
-    # convert simulation time to planateray datetime in format: (day, hour, minute second)
-    def calculate_planetary_datetime(self, time):
+    # convert simulation time to planateray clock and the to 
+    # the observer datetime after applying the time offset
+    # in format: (day, hour, minute second)
+    def calculate_observer_datetime(self, time, offset_in_hours=0):
         if self.avg_solar_day_dur == 0: self.setup_planetary_clock()
 
-        date_day, day_rem = np.divmod(time, self.avg_solar_day_dur)
+        date_day, day_rem = np.divmod(time + offset_in_hours * self.hour_dur, self.avg_solar_day_dur)
         date_hour, hour_rem = np.divmod(day_rem, self.hour_dur)
         date_minute, minute_rem = np.divmod(hour_rem, self.minute_dur)
         date_second = minute_rem / self.second_dur 
