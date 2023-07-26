@@ -23,18 +23,18 @@ def get_noaa_noon_offsets():
 
     return noaa_noon_offsets
 
-def get_simul_noon_offsets(days_offset=0, hours_offset=-7, a_phi=-18.1):
+def get_simul_noon_offsets(days_offset=0, hours_offset=-7, ecc=0.0167, a_theta=23.4, a_phi=-18.1):
     acc_field = lambda x, y: [-x / (x*x + y*y)**1.5, -y / (x*x + y*y)**1.5]
 
     elliptic_tilt = Field2D(
         r_0 = [1, 0],
-        v_0 = [0, 1.00835],      # <=== increase the initial velocity (earth orbit ecc. 1.0167)
+        v_0 = [0, 1.0 + ecc/2.0],      # <=== increase the initial velocity (earth orbit ecc. 0.0167)
         acc_field = acc_field,
         dt = 1e-5,                  # 1e-5
-        t_max = 4.1 * np.pi,
+        t_max = 2.1 * np.pi,
         days_per_year=365.256, 
         rotations_aligned=True,
-        axial_theta = 23.4,             # earth axial tilt (theta_a): 23.4
+        axial_theta = a_theta,             # earth axial tilt (theta_a): 23.4
         axial_phi = a_phi,              # earh axial azimuth (phi_a) at perihelion: -18.1
         psi_0 = 262.35,                 # rotation at time 0 (perihelion) from 16:17 UTC on Jan 4 2023 244.25 + 18.1
         observer_latitude = 33.46,      # Phoenix, AZ Latitude 
@@ -65,14 +65,40 @@ def get_simul_noon_offsets(days_offset=0, hours_offset=-7, a_phi=-18.1):
 
 if __name__ == "__main__":
 
+    fig_size = (6, 6)   # inches
+    # comparison plot
     noaa_noon_offsets = get_noaa_noon_offsets()
-    simul_noon_offsets = get_simul_noon_offsets(days_offset=0, hours_offset=-7.0, a_phi=-18.1)    # offset: 9.8, a_phi: -18.1
+    simul_noon_offsets = get_simul_noon_offsets(days_offset=0, hours_offset=-7.0, ecc=0.0167, a_theta=23.4, a_phi=-18.1)  
 
     fig, ax = plt.subplots()
-    simul_curve = ax.plot(simul_noon_offsets[0:362], label='simul')     # [0:361]   [0:357]
-    noaa_curve = ax.plot(noaa_noon_offsets[3:365], label='noaa')        # [4:365]   [8:365]
-    ax.set_title("Earth Solar noon offsets from 12pm in seconds\nLocation: Phoenix AZ, Lat: 33.64 Lon: -112.06")
+    simul_curve = ax.plot(simul_noon_offsets[0:362], label='simul')
+    noaa_curve = ax.plot(noaa_noon_offsets[3:365], label='noaa')
+    ax.set_title("Earth Solar noon offsets from 12pm in seconds\nLocation: Phoenix AZ, Lat: 33.64° Lon: -112.06°")
     ax.set_xlabel("days since perihelion (Jan 4th 2023)")
     ax.set_ylabel("noon offset (sec)")
     ax.legend()
+
+
+    # no eccentricity
+    simul_no_ecc = get_simul_noon_offsets(days_offset=0, hours_offset=-7.0, ecc=0.0, a_theta=23.4, a_phi=-18.1)    
+
+    fig2, ax2 = plt.subplots()
+    fig2.set_size_inches(fig_size)
+    simul_no_ecc = ax2.plot(simul_no_ecc[0:365], label='simul')
+    ax2.set_title("Circular Orbit (ecc = 0.0)\nAxial Tilt 23.4°\nLocation: Phoenix AZ, Lat: 33.64° Lon: -112.06°")
+    ax2.set_xlabel("days since perihelion (Jan 4th 2023)")
+    ax2.set_ylabel("noon offset (sec)")
+
+
+    # no axial tilt
+    simul_no_tilt = get_simul_noon_offsets(days_offset=0, hours_offset=-7.0, ecc=0.0167, a_theta=0.0, a_phi=-18.1)    
+
+    fig3, ax3 = plt.subplots()
+    fig3.set_size_inches(fig_size)
+    simul_no_tilt = ax3.plot(simul_no_tilt[0:365], label='simul')
+    ax3.set_title("Elliptic Orbit (ecc = 0.0167)\nNo Axial Tilt (0.0°)\nLocation: Phoenix AZ, Lat: 33.64° Lon: -112.06°")
+    ax3.set_xlabel("days since perihelion (Jan 4th 2023)")
+    ax3.set_ylabel("noon offset (sec)")
+
     plt.show()
+
