@@ -3,12 +3,13 @@
 
 Unlike the lengths of days that change throughout the year in a regular fashion, i.e. a simple sinusoidal form with maxima and minima at summer and winter solstices respectively, the position of the solar noon has a rather complex behavior. This is due to the fact that we have two contributing factors: (1) the Earth orbial eccentricity (deviation from a perfect circle to an ellipse) and (2) the axial tilt which also causes seasons. Both factors affect the timing of solar noons, albeit with different frequencies and phases.
 
-The goal of the project is to use the finite difference simulation technique to derive the orbital shape and subsequently calculate the noon time variation and compare to official/observation data.
-
-<p float="left">
-  <img src="figures/noon_offset_no_axial_tilt.png" width="200" />
-  <img src="figures/noon_offset_no_eccentricity.png" width="200" /> 
+Individual Effects:
+<p align="middle">
+  <img src="figures/noon_offset_no_axial_tilt.png" width="45%" />
+  <img src="figures/noon_offset_no_eccentricity.png" width="45%" /> 
 </p>
+
+The goal of the project is to use a finite difference simulation technique to derive the orbital shape and subsequently calculate the noon time variation and compare to the official/observation data.
 
 ## Code Structure:
 * simul/: core simultion methods
