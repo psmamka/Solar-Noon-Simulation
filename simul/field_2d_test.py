@@ -207,26 +207,31 @@ def elliptical_axial_tilt_test():
         acc_field = acc_field,
         dt = 1e-5,
         t_max = 4.1 * np.pi,
-        days_per_year=365.256, 
-        rotations_aligned=True,
+        days_per_year = 365.256, 
+        rotations_aligned = True,       # both counter-clockwise
         axial_theta = 23.4,             # earth axial tilt (theta_a): 23.4
-        axial_phi = -108.1,              # earh axial azimuth (phi_a) at perihelion: -108.1
-        observer_latitude = 33.50,      # Phoenix, AZ Latitude 
-        observer_longitude = -112.0,    # Phoenix, AZ Longitude
+        axial_phi = -18.1,              # earh axial azimuth (phi_a) at perihelion: -18.1
+        psi_0 = 262.35,                 # rotation at time 0 (perihelion) from 16:17 UTC on Jan 4 2023: 244.25 + 18.1
+        observer_latitude = 33.46,      # Phoenix, AZ Latitude 
+        observer_longitude = -112.06,    # Phoenix, AZ Longitude
         # observer_longitude = 0.0,         # North Pole Longitude
-        # observer_latitude = 90.0,         # North Pole Latitude 
+        # observer_latitude = 0.0,         # North Pole Latitude 
     )
 
     elliptic_tilt.calculate_motion()
     elliptic_tilt.calculate_orbital_period()
     elliptic_tilt.calculate_rotational_period()
+    # elliptic_tilt.update_psi_0(utc_hr=16, utc_min=17)
+    # print(f"psi_0 (deg): {np.rad2deg(elliptic_tilt.psi_0)}")
     elliptic_tilt.calculate_observer_n()
     elliptic_tilt.calculate_observer_east()
 
     elliptic_tilt.calculate_solar_noons()
     noon_datetimes = list(map(elliptic_tilt.calculate_observer_datetime, 
                               elliptic_tilt.noon_times_ar,
-                              np.ones(len(elliptic_tilt.noon_times_ar)) * 10.0   # 10 hr offset
+                              np.ones(len(elliptic_tilt.noon_times_ar)) * -7.0,   # -7 hr offset from UTC
+                              np.ones(len(elliptic_tilt.noon_times_ar)) * 16.0,   # hr_0_utc: 16:17 for perihelion of 2023
+                              np.ones(len(elliptic_tilt.noon_times_ar)) * 17.0    # mn_0_utc
                               ))
 
     datetime_to_offset = lambda tpl: (tpl[1] - 12)*3600 + tpl[2]*60 + tpl[3]    # tpl = (day, hour, min, sec)
@@ -234,12 +239,25 @@ def elliptical_axial_tilt_test():
 
     noon_offsets = list(map(datetime_to_offset, noon_datetimes))
 
+    # print(f"initial local time point: {elliptic_tilt.calculate_observer_datetime(0, -0, 6, 0, 0)}")
+    # print(f"initial psi (psi_0 in deg): {np.rad2deg(elliptic_tilt.psi_ar[0])}")
+    # print(f"initial observer n: {elliptic_tilt.obs_n_ar[0]}")
+    # print(f"first noon simul time: {elliptic_tilt.noon_times_ar[0]}")
+    # print(f"first noon local time: {noon_datetimes[0]}")
+
     fig, ax = plt.subplots()
     ax.plot(noon_offsets[0:365])
     ax.set_title("Solar noon offsets from 12pm in seconds\nEccentricity: 1.67%, Axial Tilt: 23.4°")
     ax.set_xlabel("days from perihelion")
     ax.set_ylabel("offset (sec)")
     plt.show()
+
+    # fig, ax = plt.subplots()
+    # ax.plot(elliptic_tilt.time_ar, elliptic_tilt.r_ar)  # plot distances
+    # ax.set_title("radial distance")
+    # ax.set_xlabel("simul time")
+    # ax.set_ylabel("simul distance")
+    # plt.show()
 
 
 def run_all_tests():
