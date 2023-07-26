@@ -5,7 +5,7 @@ import numpy as np
 class Field2D:
     def __init__(self, r_0=[0, 0], v_0=[0, 0], acc_field=lambda x,y: [0, 0], 
                  dt=1, t_0=0, t_max=100, days_per_year=365.256, rotations_aligned=True,
-                 axial_theta=0, axial_phi=0, 
+                 axial_theta=0, axial_phi=0, psi_0=0,
                  observer_latitude=0, observer_longitude=0):
         self.r_0 = r_0
         self.x_0, self.y_0 = self.r_0
@@ -63,6 +63,8 @@ class Field2D:
         # reference point w.r.t. the x-y axis
         self.obs_lat = np.deg2rad(observer_latitude)
         self.obs_lon = np.deg2rad(observer_longitude)
+        # initial rotation phase at time 0
+        self.psi_0 = np.deg2rad(psi_0)
 
         # observer noraml vector (n_hat) w.r.t. the planet surface
         # and east (e_hat) vector w.r.t. the north pole
@@ -203,15 +205,29 @@ class Field2D:
 
         return self.rotational_period
     
+    # When we have the initial ref (utc) time instead of the phi_0
+    # Calculate the initial rotation phase of the planet
+    # based on the utc (clock) time point at simul time of 0
+    # as well as the rotation phase. 
+    def update_psi_0(self, utc_hr=0, utc_min=0, utc_sec=0, utc_psi=0):
+        if self.rotational_period == 0: self.calculate_rotational_period()
+        self.setup_planetary_clock()
+        # self.psi_0 = (utc_hr * 3600 + utc_min * 60 + utc_sec) / (24 * 3600) * 2 * np.pi
+        self.psi_0 = self.rotational_velocity * (utc_hr * self.hour_dur + utc_min * self.minute_dur + utc_sec * self.second_dur) + utc_psi
+        
+        return self.psi_0
+    
     # observer n-hat is the perpendicular to the planet surface at
     # the location of the observer. 
     # It depends on observer coordinates (latt-long) as well as the 
     # axial tilt of the planet and the planet rotation (psi)
     # for the north pole it is always aligned with the rotation axis
     # The 8 contants in the final rotated vector are only calculated once
+    # See figures/n_hat_calculation
+    # psi_0 is the rotation angle of the planet at time zero
     def calculate_observer_n(self):
         if self.rotational_period == 0: self.calculate_rotational_period()
-        self.psi_ar = self.rotational_velocity * self.time_ar   # roration phase
+        self.psi_ar = self.rotational_velocity * self.time_ar + self.psi_0   # roration phase
         # observer spherical coordinates
         theta = np.pi/2 - self.obs_lat
         phi_ar = self.obs_lon + self.psi_ar # total phase is longitude + rotation phase
@@ -289,11 +305,11 @@ class Field2D:
     # angle of the sun in the sky. psi minus theta. For now psi at t0 is 0
     # for now the initial point is at psi - theta = 0, i.e. midnight.
     def calculate_solar_angles_flat(self):
-        self.rotaional_velocity = 2 * np.pi / self.rotational_period
-        if not self.rotations_aligned: self.rotaional_velocity *= -1
+        self.rotational_velocity = 2 * np.pi / self.rotational_period
+        if not self.rotations_aligned: self.rotational_velocity *= -1
 
         # psi - theta
-        self.solar_angle_ar = (self.time_ar * self.rotaional_velocity - self.th_ar) % (2 * np.pi)
+        self.solar_angle_ar = (self.time_ar * self.rotational_velocity - self.th_ar) % (2 * np.pi)
         return self.solar_angle_ar
     
     # without axial tilt (deorecated)
@@ -326,7 +342,7 @@ class Field2D:
     
     # solar days are on avg. 24h, hours are 60 minutes, etc. 
     def setup_planetary_clock(self, hours_in_day=24.0):
-        if self.orbital_period == 0: self.calculate_orbital_period_distbased()
+        if self.orbital_period == 0: self.calculate_orbital_period()
 
         # calculate durations of average solar day, hour, minute and second in simulation time units
         self.avg_solar_day_dur = self.orbital_period / self.days_per_year
@@ -336,13 +352,19 @@ class Field2D:
 
         return(self.avg_solar_day_dur, self.hour_dur, self.minute_dur, self.second_dur)
 
-    # convert simulation time to planateray clock and the to 
+    # convert simulation time to observer clock
     # the observer datetime after applying the time offset
     # in format: (day, hour, minute second)
-    def calculate_observer_datetime(self, time, offset_in_hours=0):
+    # offset_in_hours is the local time offset w.r.t. the planetary clock (e.g. UTC -7 for Phoenix)
+    # hr_0_utc etc. are the UTC time at simul time of 0. 
+    # e.g. 16:17 for perihelion of 2023
+    def calculate_observer_datetime(self, time, offset_in_hours=0, hr_0_utc=0, mn_0_utc=0, sc_0_utc=0):
         if self.avg_solar_day_dur == 0: self.setup_planetary_clock()
 
-        date_day, day_rem = np.divmod(time + offset_in_hours * self.hour_dur, self.avg_solar_day_dur)
+        date_day, day_rem = np.divmod(time + 
+                                      (hr_0_utc + offset_in_hours) * self.hour_dur + mn_0_utc * self.minute_dur + sc_0_utc * self.second_dur, 
+                                      self.avg_solar_day_dur
+                                      )
         date_hour, hour_rem = np.divmod(day_rem, self.hour_dur)
         date_minute, minute_rem = np.divmod(hour_rem, self.minute_dur)
         date_second = minute_rem / self.second_dur 
