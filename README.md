@@ -5,11 +5,10 @@ Unlike the lengths of days that change throughout the year in a regular fashion,
 
 The goal of the project is to use the finite difference simulation technique to derive the orbital shape and subsequently calculate the noon time variation and compare to official/observation data.
 
-Eccentricity effect:
-![](figures/noon_offset_no_axial_tilt.png)
-
-Axial tilt effect:
-![](figures/noon_offset_no_eccentricity.png)
+<p float="left">
+  <img src="figures/noon_offset_no_axial_tilt.png" width="200" />
+  <img src="figures/noon_offset_no_eccentricity.png" width="200" /> 
+</p>
 
 ## Code Structure:
 * simul/: core simultion methods
