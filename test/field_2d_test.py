@@ -1,5 +1,7 @@
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 import numpy as np
-from field_2d import Field2D
+from simul.field_2d import Field2D
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
