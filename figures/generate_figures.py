@@ -1,27 +1,31 @@
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from util.read_data import read_noaa_data
+from util.read_data import read_noaa_data, read_navy_data
 from simul.field_2d import Field2D
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-def get_noaa_noon_offsets():
+def get_data_noon_offsets(data_fname, file_reader):
     cur_path = os.path.dirname(__file__)
-    fname = os.path.join(cur_path, '..', 'data', 'noaa-phoenix-solar-noon.txt')
+    fname = os.path.join(cur_path, '..', 'data', data_fname)
 
-    noon_data_noaa = read_noaa_data(fname)
-    # print(noon_data_noaa)
-    # print(noon_data_noaa.shape)
-
-    data_tpl_noaa = list(map(lambda elm: tuple([int(x) for x in elm.split(':')]), noon_data_noaa))
-    # print(data_tpl_noaa)
+    noon_data = file_reader(fname) # read_noaa_data(fname)
+    data_tpl = list(map(lambda elm: tuple([int(x) for x in elm.split(':')]), noon_data))
 
     datetime_to_offset = lambda tpl: (tpl[0] - 12)*3600 + tpl[1]*60 + tpl[2]
+    noon_offsets = list(map(datetime_to_offset, data_tpl))
+    return noon_offsets
 
-    noaa_noon_offsets = list(map(datetime_to_offset, data_tpl_noaa))
+# def get_navy_noon_offsets():
+#     cur_path = os.path.dirname(__file__)
+#     fname = os.path.join(cur_path, '..', 'data', 'navy-phoenix-sunrise-sunset.txt')
 
-    return noaa_noon_offsets
+#     noon_data_navy = read_navy_data(fname)
+#     data_tpl_navy = list(map(lambda elm: tuple([int(x) for x in elm.split(':')]), noon_data_navy))
+#     datetime_to_offset = lambda tpl: (tpl[0] - 12)*3600 + tpl[1]*60 + tpl[2]
+#     noon_offsets = list(map(datetime_to_offset, data_tpl_navy))
+#     return noon_offsets
 
 def get_simul_noon_offsets(days_offset=0, hours_offset=-7, ecc=0.0167, a_theta=23.4, a_phi=-18.1):
     acc_field = lambda x, y: [-x / (x*x + y*y)**1.5, -y / (x*x + y*y)**1.5]
@@ -65,15 +69,19 @@ def get_simul_noon_offsets(days_offset=0, hours_offset=-7, ecc=0.0167, a_theta=2
 
 if __name__ == "__main__":
 
-    fig_size = (6, 6)   # inches
-    # comparison plot
-    noaa_noon_offsets = get_noaa_noon_offsets()
+    fig_size = (6, 6)   # fig size in inches
+
+    noaa_noon_offsets = get_data_noon_offsets(data_fname='noaa-phoenix-solar-noon.txt', file_reader=read_noaa_data)
+    navy_noon_offsets = get_data_noon_offsets(data_fname='navy-phoenix-sunrise-sunset.txt', file_reader=read_navy_data)
+    # print(navy_noon_offsets)
+
     simul_noon_offsets = get_simul_noon_offsets(days_offset=0, hours_offset=-7.0, ecc=0.0167, a_theta=23.4, a_phi=-18.1)  
 
     fig, ax = plt.subplots()
-    simul_curve = ax.plot(simul_noon_offsets[0:362], label='simul')
-    noaa_curve = ax.plot(noaa_noon_offsets[3:365], label='noaa')
-    ax.set_title("Earth Solar noon offsets from 12pm in seconds\nLocation: Phoenix AZ, Lat: 33.64° Lon: -112.06°")
+    simul_curve = ax.plot(simul_noon_offsets[0:362], 'green', label='simul')
+    noaa_curve = ax.plot(noaa_noon_offsets[3:365], 'orange', label='noaa')
+    navy_curve = ax.scatter(np.arange(3, 365), navy_noon_offsets[3:365], s=1, c='blue', label='navy')
+    ax.set_title("Earth Solar noon offsets from 12pm in seconds\nLocation: Phoenix AZ (UTC-7), Lat: 33.64° Lon: -112.06°")
     ax.set_xlabel("days since perihelion (Jan 4th 2023)")
     ax.set_ylabel("noon offset (sec)")
     ax.legend()
